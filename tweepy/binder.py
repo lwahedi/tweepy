@@ -151,6 +151,7 @@ def bind_api(**config):
             # Continue attempting request until successful
             # or maximum number of retries is reached.
             retries_performed = 0
+            timeout_reps = 0
             while retries_performed < self.retry_count + 1:
                 # handle running out of api calls
                 if self.wait_on_rate_limit:
@@ -188,6 +189,18 @@ def bind_api(**config):
                                                 timeout=self.api.timeout,
                                                 auth=auth,
                                                 proxies=self.api.proxy)
+                except (Timeout, ssl.SSLError) as exc:
+                    # This is still necessary, as a SSLError can actually be
+                    # thrown when using Requests
+                    # If it's not time out treat it like any other exception
+                    # From https://github.com/tweepy/tweepy/blob/master/tweepy/streaming.py#L267
+                    if isinstance(exc, ssl.SSLError):
+                        if not (exc.args and 'timed out' in str(exc.args[0])):
+                            exc_info = sys.exc_info()
+                            six.reraise(TweepError, TweepError('Failed to send request: %s' % e), sys.exc_info()[2])
+                    time.sleep(retry_delay)
+                    retries_performed += 1
+                    continue
                 except Exception as e:
                     six.reraise(TweepError, TweepError('Failed to send request: %s' % e), sys.exc_info()[2])
 
