@@ -9,6 +9,7 @@ import re
 
 from six.moves.urllib.parse import quote, urlencode
 import requests
+from requests.exceptions import Timeout
 
 import logging
 
